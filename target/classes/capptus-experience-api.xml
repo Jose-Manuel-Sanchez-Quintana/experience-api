@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd  http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+    <http:listener-config name="capptus-experience-api-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8082" />
+    </http:listener-config>
+    <apikit:config name="capptus-experience-api-config" api="resource::3583f684-5008-42d9-a5db-bb2debac9772:assignment-experience-api:4.0.0:raml:zip:capptus-experience-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <http:request-config name="HTTP_Request_Customers" doc:name="HTTP Request configuration" doc:id="d17dab41-57bd-4f93-b38f-fb72664711f6">
+        <http:request-connection host="assignment-customers-sapi.us-e2.cloudhub.io" />
+    </http:request-config>
+    <http:request-config name="HTTP_Request_Products" doc:name="HTTP Request configuration" doc:id="703995ab-2ff0-41ce-b645-f428cd222f10">
+        <http:request-connection protocol="HTTPS" host="api.restful-api.dev" />
+    </http:request-config>
+    <http:request-config name="HTTP_Request_Salesforce" doc:name="HTTP Request configuration" doc:id="a25a3799-ce80-4d14-acaa-dd0464633a2f">
+        <http:request-connection host="assignment-salesforce-sapi.us-e2.cloudhub.io" protocol="HTTPS"/>
+    </http:request-config>
+    <salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="368e623e-2eb6-4160-b80b-531d9378c8be">
+        <salesforce:basic-connection username="${sf.user}" password="${sf.password}" securityToken="${sf.st}" />
+    </salesforce:sfdc-config>
+    <http:request-config name="HTTP_Request_Order" doc:name="HTTP Request configuration" doc:id="0f0a2f39-374f-4388-8dd6-6ec8781ffc55" >
+		<http:request-connection host="assignment-process-api.us-e2.cloudhub.io" />
+	</http:request-config>
+	<flow name="capptus-experience-api-main">
+        <http:listener config-ref="capptus-experience-api-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="capptus-experience-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="get:\customers:capptus-experience-api-config">
+        <http:request method="GET" doc:name="Request1" doc:id="d24fd2a9-f1d3-4a2a-9406-2c3be5c1da1a" config-ref="HTTP_Request_Customers" path="/api/customers" />
+        <ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="get:\products:capptus-experience-api-config">
+        <http:request method="GET" doc:name="Request" doc:id="a5d07164-c772-48ed-9dc4-5bde487128a5" config-ref="HTTP_Request_Products" path="/objects" />
+        <ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="post:\order:application\json:capptus-experience-api-config">
+        <http:request method="GET" doc:name="Request" doc:id="e067b8b3-b796-430a-b2a5-1a183037cc0c" config-ref="HTTP_Request_Order" path="/api/order"/>
+		<ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: "Order created"
+} as Object {encoding: "UTF-8", mediaType: "application/json"}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+	<flow name="get:\accounts:capptus-experience-api-config">
+        <http:request method="GET" doc:name="Request" doc:id="c1dae70c-9295-4392-8994-65a95b0bf231" config-ref="HTTP_Request_Salesforce" path="/api/accounts" />
+        <ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+	<flow name="post:\accounts:application\json:capptus-experience-api-config">
+        <http:request method="POST" doc:name="Request" doc:id="0627b1d9-1fd8-4b7c-aaca-bb82c19f8fa1" config-ref="HTTP_Request_Salesforce" path="/api/accounts" />
+        <ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="delete:\accounts\(id):capptus-experience-api-config">
+		<http:request method="DELETE" doc:name="Request1" doc:id="17af50f9-ef48-4581-8d9e-a2ce671d4122" config-ref="HTTP_Request_Salesforce" path="/api/accounts" >
+		</http:request>
+		<ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="patch:\accounts\(id):application\json:capptus-experience-api-config">
+        <http:request method="PATCH" doc:name="Request" doc:id="b6711bc5-6472-49f8-adf3-4fd50561111b" config-ref="HTTP_Request_Salesforce" path="/api/accounts">
+			<http:uri-params><![CDATA[#[{
+	id: attributes.uriParams.id
+}]]]></http:uri-params>
+		</http:request>
+		<ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+[
+  {
+    message: "Account updated"
+  }
+] as Array {encoding: "UTF-8", mediaType: "application/json"}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <!-- [STUDIO:"get:\accounts\(id):capptus-experience-api-config"]<flow name="get:\accounts\(id):capptus-experience-api-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:variables>
+                <ee:set-variable variableName="id">attributes.uriParams.'id'</ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+&#45;&#45;-
+[
+  {
+    Name: "Ryan Smith",
+    Active__c: "Yes",
+    Phone: 12382534,
+    AccountNumber: 227
+  }
+&#93; as Array {encoding: "UTF-8", mediaType: "application/json"}&#93;&#93;></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow> [STUDIO] -->
+</mule>
